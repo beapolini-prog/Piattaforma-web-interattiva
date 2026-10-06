@@ -1,0 +1,1 @@
+var json_FonteSambrosera_17 = {"type":"FeatureCollection","name":"FonteSambrosera_17","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[{"type":"Feature","properties":{"id":"1","Name":"Fonte Sambrosera","Quota":"716"},"geometry":{"type":"Point","coordinates":[9.341448693831415,45.860137439157313]}}]}

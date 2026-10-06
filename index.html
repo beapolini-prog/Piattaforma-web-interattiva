@@ -1,0 +1,1862 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/L.Control.Locate.min.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet.photon.css">
+        <style>
+        #map {
+            width: 1077px;
+            height: 588px;
+        }
+        </style>
+        <title></title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/L.Control.Locate.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet.photon.js"></script>
+        <script src="data/Curvedilivello_3.js"></script>
+        <script src="data/LagodiComo_4.js"></script>
+        <script src="data/Retefluviale_5.js"></script>
+        <script src="data/Retefluviale_6.js"></script>
+        <script src="data/Strade_7.js"></script>
+        <script src="data/Edifici_8.js"></script>
+        <script src="data/ComunediValmadrera_9.js"></script>
+        <script src="data/Sentieriadanello12_10.js"></script>
+        <script src="data/Sentierodiritorno12_11.js"></script>
+        <script src="data/Nuovosentierodiritorno12_12.js"></script>
+        <script src="data/SentierodiandataSanTomaso_13.js"></script>
+        <script src="data/FontedelFo_14.js"></script>
+        <script src="data/RifugioSEVsentierodiritorno_15.js"></script>
+        <script src="data/RifugioSEV_16.js"></script>
+        <script src="data/FonteSambrosera_17.js"></script>
+        <script src="data/RifugioSEVsentierodiandata_18.js"></script>
+        <script src="data/Segnaviadivisionesentieri12_19.js"></script>
+        <script src="data/STARTPOINT_20.js"></script>
+        <script src="data/Parcheggiogratuito_21.js"></script>
+        <script>
+        var highlightLayer;
+        function highlightFeature(e) {
+            highlightLayer = e.target;
+
+            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
+              highlightLayer.setStyle({
+                color: 'rgba(255, 255, 0, 1.00)',
+              });
+            } else {
+              highlightLayer.setStyle({
+                fillColor: 'rgba(255, 255, 0, 1.00)',
+                fillOpacity: 1
+              });
+            }
+            highlightLayer.openPopup();
+        }
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:18, minZoom:1
+        }).fitBounds([[45.84905217440391,9.33021042730795],[45.862028335995745,9.354014819306627]]);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/qgis2web/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // modify popup if contains media
+        function addClassToPopupIfMedia(content, popup) {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            var imgTd = tempDiv.querySelector('td img');
+            if (imgTd) {
+                var src = imgTd.getAttribute('src');
+                if (/\.(jpg|jpeg|png|gif|bmp|webp|avif)$/i.test(src)) {
+                    popup._contentNode.classList.add('media');
+                    var img = popup._contentNode.querySelector('td img');
+                    if (img) {
+                        // If already loaded (cache), update immediately
+                        if (img.complete && img.naturalHeight > 0) {
+                            popup.update();
+                        } else {
+                            img.addEventListener('load', function() {
+                                popup.update();
+                            });
+                            img.addEventListener('error', function() {
+                                popup.update();
+                            });
+                        }
+                    }
+                } else if (/\.(mp3|wav|ogg|aac)$/i.test(src)) {
+                    var audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = src;
+                    imgTd.parentNode.replaceChild(audio, imgTd);
+                    popup._contentNode.classList.add('media');
+                    setTimeout(function() {
+                        popup.setContent(tempDiv.innerHTML);
+                        popup.update();
+                    }, 10);
+                } else if (/\.(mp4|webm|ogg|mov)$/i.test(src)) {
+                    var video = document.createElement('video');
+                    video.controls = true;
+                    video.src = src;
+                    video.style.width = "400px";
+                    video.style.height = "300px";
+                    video.style.maxHeight = "60vh";
+                    video.style.maxWidth = "60vw";
+                    imgTd.parentNode.replaceChild(video, imgTd);
+                    popup._contentNode.classList.add('media');
+                    // Aggiorna il popup quando il video carica i metadati
+                    video.addEventListener('loadedmetadata', function() {
+                        popup.update();
+                    });
+                    setTimeout(function() {
+                        popup.setContent(tempDiv.innerHTML);
+                        popup.update();
+                    }, 10);
+                } else {
+                    popup._contentNode.classList.remove('media');
+                }
+            } else {
+                popup._contentNode.classList.remove('media');
+            }
+        }
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        L.control.locate({locateOptions: {maxZoom: 19}}).addTo(map);
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+        }
+        map.createPane('pane_OSMStandard_0');
+        map.getPane('pane_OSMStandard_0').style.zIndex = 400;
+        var layer_OSMStandard_0 = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            pane: 'pane_OSMStandard_0',
+            opacity: 1.0,
+            attribution: '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors, CC-BY-SA</a>',
+            minZoom: 1,
+            maxZoom: 18,
+            minNativeZoom: 0,
+            maxNativeZoom: 19
+        });
+        layer_OSMStandard_0;
+        map.addLayer(layer_OSMStandard_0);
+        map.createPane('pane_Ombreggiatura_DTM5X5_1');
+        map.getPane('pane_Ombreggiatura_DTM5X5_1').style.zIndex = 401;
+        var img_Ombreggiatura_DTM5X5_1 = 'data/Ombreggiatura_DTM5X5_1.png';
+        var img_bounds_Ombreggiatura_DTM5X5_1 = [[45.834561453524124,9.317873769111836],[45.872414795447725,9.379290579290002]];
+        var layer_Ombreggiatura_DTM5X5_1 = new L.imageOverlay(img_Ombreggiatura_DTM5X5_1,
+                                              img_bounds_Ombreggiatura_DTM5X5_1,
+                                              {pane: 'pane_Ombreggiatura_DTM5X5_1'});
+        bounds_group.addLayer(layer_Ombreggiatura_DTM5X5_1);
+        map.addLayer(layer_Ombreggiatura_DTM5X5_1);
+        map.createPane('pane_DTM5X5_VALMADRERA_2');
+        map.getPane('pane_DTM5X5_VALMADRERA_2').style.zIndex = 402;
+        var img_DTM5X5_VALMADRERA_2 = 'data/DTM5X5_VALMADRERA_2.png';
+        var img_bounds_DTM5X5_VALMADRERA_2 = [[45.834561453524124,9.317873769111836],[45.872414795447725,9.379290579290002]];
+        var layer_DTM5X5_VALMADRERA_2 = new L.imageOverlay(img_DTM5X5_VALMADRERA_2,
+                                              img_bounds_DTM5X5_VALMADRERA_2,
+                                              {pane: 'pane_DTM5X5_VALMADRERA_2'});
+        bounds_group.addLayer(layer_DTM5X5_VALMADRERA_2);
+        map.addLayer(layer_DTM5X5_VALMADRERA_2);
+        function pop_Curvedilivello_3(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['fid'] !== null ? autolinker.link(String(feature.properties['fid']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['ID'] !== null ? autolinker.link(String(feature.properties['ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['ELEV'] !== null ? autolinker.link(String(feature.properties['ELEV']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Curvedilivello_3_0() {
+            return {
+                pane: 'pane_Curvedilivello_3',
+                opacity: 1,
+                color: 'rgba(150,127,79,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 1.0,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Curvedilivello_3');
+        map.getPane('pane_Curvedilivello_3').style.zIndex = 403;
+        map.getPane('pane_Curvedilivello_3').style['mix-blend-mode'] = 'normal';
+        var layer_Curvedilivello_3 = new L.geoJson(json_Curvedilivello_3, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Curvedilivello_3',
+            layerName: 'layer_Curvedilivello_3',
+            pane: 'pane_Curvedilivello_3',
+            onEachFeature: pop_Curvedilivello_3,
+            style: style_Curvedilivello_3_0,
+        });
+        bounds_group.addLayer(layer_Curvedilivello_3);
+        map.addLayer(layer_Curvedilivello_3);
+        function pop_LagodiComo_4(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_LagodiComo_4_0() {
+            return {
+                pane: 'pane_LagodiComo_4',
+                opacity: 1,
+                color: 'rgba(213,233,239,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(170,211,223,1.0)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_LagodiComo_4');
+        map.getPane('pane_LagodiComo_4').style.zIndex = 404;
+        map.getPane('pane_LagodiComo_4').style['mix-blend-mode'] = 'normal';
+        var layer_LagodiComo_4 = new L.geoJson(json_LagodiComo_4, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_LagodiComo_4',
+            layerName: 'layer_LagodiComo_4',
+            pane: 'pane_LagodiComo_4',
+            onEachFeature: pop_LagodiComo_4,
+            style: style_LagodiComo_4_0,
+        });
+        bounds_group.addLayer(layer_LagodiComo_4);
+        map.addLayer(layer_LagodiComo_4);
+        function pop_Retefluviale_5(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Retefluviale_5_0() {
+            return {
+                pane: 'pane_Retefluviale_5',
+                opacity: 1,
+                color: 'rgba(107,135,255,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 1.0,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Retefluviale_5');
+        map.getPane('pane_Retefluviale_5').style.zIndex = 405;
+        map.getPane('pane_Retefluviale_5').style['mix-blend-mode'] = 'normal';
+        var layer_Retefluviale_5 = new L.geoJson(json_Retefluviale_5, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Retefluviale_5',
+            layerName: 'layer_Retefluviale_5',
+            pane: 'pane_Retefluviale_5',
+            onEachFeature: pop_Retefluviale_5,
+            style: style_Retefluviale_5_0,
+        });
+        bounds_group.addLayer(layer_Retefluviale_5);
+        map.addLayer(layer_Retefluviale_5);
+        function pop_Retefluviale_6(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Retefluviale_6_0() {
+            return {
+                pane: 'pane_Retefluviale_6',
+                opacity: 1,
+                color: 'rgba(107,135,255,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 1.0,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Retefluviale_6');
+        map.getPane('pane_Retefluviale_6').style.zIndex = 406;
+        map.getPane('pane_Retefluviale_6').style['mix-blend-mode'] = 'normal';
+        var layer_Retefluviale_6 = new L.geoJson(json_Retefluviale_6, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Retefluviale_6',
+            layerName: 'layer_Retefluviale_6',
+            pane: 'pane_Retefluviale_6',
+            onEachFeature: pop_Retefluviale_6,
+            style: style_Retefluviale_6_0,
+        });
+        bounds_group.addLayer(layer_Retefluviale_6);
+        map.addLayer(layer_Retefluviale_6);
+        function pop_Strade_7(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Strade_7_0() {
+            return {
+                pane: 'pane_Strade_7',
+                opacity: 1,
+                color: 'rgba(0,0,0,0.6)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 1.0,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Strade_7');
+        map.getPane('pane_Strade_7').style.zIndex = 407;
+        map.getPane('pane_Strade_7').style['mix-blend-mode'] = 'normal';
+        var layer_Strade_7 = new L.geoJson(json_Strade_7, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Strade_7',
+            layerName: 'layer_Strade_7',
+            pane: 'pane_Strade_7',
+            onEachFeature: pop_Strade_7,
+            style: style_Strade_7_0,
+        });
+        bounds_group.addLayer(layer_Strade_7);
+        map.addLayer(layer_Strade_7);
+        function pop_Edifici_8(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Edifici_8_0() {
+            return {
+                pane: 'pane_Edifici_8',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.6)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(213,212,207,0.6)',
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Edifici_8');
+        map.getPane('pane_Edifici_8').style.zIndex = 408;
+        map.getPane('pane_Edifici_8').style['mix-blend-mode'] = 'normal';
+        var layer_Edifici_8 = new L.geoJson(json_Edifici_8, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Edifici_8',
+            layerName: 'layer_Edifici_8',
+            pane: 'pane_Edifici_8',
+            onEachFeature: pop_Edifici_8,
+            style: style_Edifici_8_0,
+        });
+        bounds_group.addLayer(layer_Edifici_8);
+        map.addLayer(layer_Edifici_8);
+        function pop_ComunediValmadrera_9(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_ComunediValmadrera_9_0() {
+            return {
+                pane: 'pane_ComunediValmadrera_9',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 1.0,
+                fillOpacity: 0,
+                interactive: false,
+            }
+        }
+        map.createPane('pane_ComunediValmadrera_9');
+        map.getPane('pane_ComunediValmadrera_9').style.zIndex = 409;
+        map.getPane('pane_ComunediValmadrera_9').style['mix-blend-mode'] = 'normal';
+        var layer_ComunediValmadrera_9 = new L.geoJson(json_ComunediValmadrera_9, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_ComunediValmadrera_9',
+            layerName: 'layer_ComunediValmadrera_9',
+            pane: 'pane_ComunediValmadrera_9',
+            onEachFeature: pop_ComunediValmadrera_9,
+            style: style_ComunediValmadrera_9_0,
+        });
+        bounds_group.addLayer(layer_ComunediValmadrera_9);
+        map.addLayer(layer_ComunediValmadrera_9);
+        function pop_Sentieriadanello12_10(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Tipologia</th>\
+                        <td class="visible-with-data" id="Tipologia">' + (feature.properties['Tipologia'] !== null ? autolinker.link(String(feature.properties['Tipologia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Carattere</th>\
+                        <td class="visible-with-data" id="Caratter">' + (feature.properties['Caratter'] !== null ? autolinker.link(String(feature.properties['Caratter']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Segni</th>\
+                        <td class="visible-with-data" id="Segni">' + (feature.properties['Segni'] !== null ? autolinker.link(String(feature.properties['Segni']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Difficoltà</th>\
+                        <td class="visible-with-data" id="PerDif">' + (feature.properties['PerDif'] !== null ? autolinker.link(String(feature.properties['PerDif']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Note</th>\
+                        <td class="visible-with-data" id="Note">' + (feature.properties['Note'] !== null ? autolinker.link(String(feature.properties['Note']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Sentieriadanello12_10_0() {
+            return {
+                pane: 'pane_Sentieriadanello12_10',
+                opacity: 1,
+                color: 'rgba(231,55,56,1.0)',
+                dashArray: '',
+                lineCap: 'square',
+                lineJoin: 'bevel',
+                weight: 4.0,
+                fillOpacity: 0,
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Sentieriadanello12_10');
+        map.getPane('pane_Sentieriadanello12_10').style.zIndex = 410;
+        map.getPane('pane_Sentieriadanello12_10').style['mix-blend-mode'] = 'normal';
+        var layer_Sentieriadanello12_10 = new L.geoJson(json_Sentieriadanello12_10, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Sentieriadanello12_10',
+            layerName: 'layer_Sentieriadanello12_10',
+            pane: 'pane_Sentieriadanello12_10',
+            onEachFeature: pop_Sentieriadanello12_10,
+            style: style_Sentieriadanello12_10_0,
+        });
+        bounds_group.addLayer(layer_Sentieriadanello12_10);
+        map.addLayer(layer_Sentieriadanello12_10);
+        function pop_Sentierodiritorno12_11(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Presenza segnavia</th>\
+                        <td class="visible-with-data" id="Presenza i">' + (feature.properties['Presenza i'] !== null ? autolinker.link(String(feature.properties['Presenza i']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di impianto</th>\
+                        <td class="visible-with-data" id="Tipo impia">' + (feature.properties['Tipo impia'] !== null ? autolinker.link(String(feature.properties['Tipo impia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Importanza</th>\
+                        <td class="visible-with-data" id="Importanza">' + (feature.properties['Importanza'] !== null ? autolinker.link(String(feature.properties['Importanza']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di cartello</th>\
+                        <td class="visible-with-data" id="Tipo Carte">' + (feature.properties['Tipo Carte'] !== null ? autolinker.link(String(feature.properties['Tipo Carte']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Testo della freccia</th>\
+                        <td class="visible-with-data" id="Testo frec">' + (feature.properties['Testo frec'] !== null ? autolinker.link(String(feature.properties['Testo frec']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Sentierodiritorno12_11_0() {
+            return {
+                pane: 'pane_Sentierodiritorno12_11',
+                radius: 6.8,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,55,56,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Sentierodiritorno12_11');
+        map.getPane('pane_Sentierodiritorno12_11').style.zIndex = 411;
+        map.getPane('pane_Sentierodiritorno12_11').style['mix-blend-mode'] = 'normal';
+        var layer_Sentierodiritorno12_11 = new L.geoJson(json_Sentierodiritorno12_11, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Sentierodiritorno12_11',
+            layerName: 'layer_Sentierodiritorno12_11',
+            pane: 'pane_Sentierodiritorno12_11',
+            onEachFeature: pop_Sentierodiritorno12_11,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Sentierodiritorno12_11_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Sentierodiritorno12_11);
+        map.addLayer(layer_Sentierodiritorno12_11);
+        function pop_Nuovosentierodiritorno12_12(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Presenza segnavia</th>\
+                        <td class="visible-with-data" id="Presenza i">' + (feature.properties['Presenza i'] !== null ? autolinker.link(String(feature.properties['Presenza i']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di impianto</th>\
+                        <td class="visible-with-data" id="Tipo impia">' + (feature.properties['Tipo impia'] !== null ? autolinker.link(String(feature.properties['Tipo impia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Importanza</th>\
+                        <td class="visible-with-data" id="Importanza">' + (feature.properties['Importanza'] !== null ? autolinker.link(String(feature.properties['Importanza']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di cartello</th>\
+                        <td class="visible-with-data" id="Tipo Carte">' + (feature.properties['Tipo Carte'] !== null ? autolinker.link(String(feature.properties['Tipo Carte']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Testo della freccia</th>\
+                        <td class="visible-with-data" id="Testo frec">' + (feature.properties['Testo frec'] !== null ? autolinker.link(String(feature.properties['Testo frec']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Nuovosentierodiritorno12_12_0() {
+            return {
+                pane: 'pane_Nuovosentierodiritorno12_12',
+                radius: 6.8,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,55,56,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Nuovosentierodiritorno12_12');
+        map.getPane('pane_Nuovosentierodiritorno12_12').style.zIndex = 412;
+        map.getPane('pane_Nuovosentierodiritorno12_12').style['mix-blend-mode'] = 'normal';
+        var layer_Nuovosentierodiritorno12_12 = new L.geoJson(json_Nuovosentierodiritorno12_12, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Nuovosentierodiritorno12_12',
+            layerName: 'layer_Nuovosentierodiritorno12_12',
+            pane: 'pane_Nuovosentierodiritorno12_12',
+            onEachFeature: pop_Nuovosentierodiritorno12_12,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Nuovosentierodiritorno12_12_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Nuovosentierodiritorno12_12);
+        map.addLayer(layer_Nuovosentierodiritorno12_12);
+        function pop_SentierodiandataSanTomaso_13(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Presenza segnavia</th>\
+                        <td class="visible-with-data" id="Presenza i">' + (feature.properties['Presenza i'] !== null ? autolinker.link(String(feature.properties['Presenza i']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di impianto</th>\
+                        <td class="visible-with-data" id="Tipo impia">' + (feature.properties['Tipo impia'] !== null ? autolinker.link(String(feature.properties['Tipo impia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Importanza</th>\
+                        <td class="visible-with-data" id="Importanza">' + (feature.properties['Importanza'] !== null ? autolinker.link(String(feature.properties['Importanza']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di cartello</th>\
+                        <td class="visible-with-data" id="Tipo Carte">' + (feature.properties['Tipo Carte'] !== null ? autolinker.link(String(feature.properties['Tipo Carte']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Testo della freccia</th>\
+                        <td class="visible-with-data" id="Testo frec">' + (feature.properties['Testo frec'] !== null ? autolinker.link(String(feature.properties['Testo frec']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_SentierodiandataSanTomaso_13_0() {
+            return {
+                pane: 'pane_SentierodiandataSanTomaso_13',
+                radius: 6.8,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,55,56,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_SentierodiandataSanTomaso_13');
+        map.getPane('pane_SentierodiandataSanTomaso_13').style.zIndex = 413;
+        map.getPane('pane_SentierodiandataSanTomaso_13').style['mix-blend-mode'] = 'normal';
+        var layer_SentierodiandataSanTomaso_13 = new L.geoJson(json_SentierodiandataSanTomaso_13, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_SentierodiandataSanTomaso_13',
+            layerName: 'layer_SentierodiandataSanTomaso_13',
+            pane: 'pane_SentierodiandataSanTomaso_13',
+            onEachFeature: pop_SentierodiandataSanTomaso_13,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_SentierodiandataSanTomaso_13_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_SentierodiandataSanTomaso_13);
+        map.addLayer(layer_SentierodiandataSanTomaso_13);
+        function pop_FontedelFo_14(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Quota in metri</th>\
+                        <td class="visible-with-data" id="Quota">' + (feature.properties['Quota'] !== null ? autolinker.link(String(feature.properties['Quota']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_FontedelFo_14_0() {
+            return {
+                pane: 'pane_FontedelFo_14',
+        rotationAngle: 0.0,
+        rotationOrigin: 'center center',
+        icon: L.icon({
+            iconUrl: 'markers/FontedelFo_14.svg',
+            iconSize: [34.199999999999996, 34.199999999999996]
+        }),
+                interactive: true,
+            }
+        }
+        map.createPane('pane_FontedelFo_14');
+        map.getPane('pane_FontedelFo_14').style.zIndex = 414;
+        map.getPane('pane_FontedelFo_14').style['mix-blend-mode'] = 'normal';
+        var layer_FontedelFo_14 = new L.geoJson(json_FontedelFo_14, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_FontedelFo_14',
+            layerName: 'layer_FontedelFo_14',
+            pane: 'pane_FontedelFo_14',
+            onEachFeature: pop_FontedelFo_14,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.marker(latlng, style_FontedelFo_14_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_FontedelFo_14);
+        map.addLayer(layer_FontedelFo_14);
+        function pop_RifugioSEVsentierodiritorno_15(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Presenza segnavia</th>\
+                        <td class="visible-with-data" id="Presenza i">' + (feature.properties['Presenza i'] !== null ? autolinker.link(String(feature.properties['Presenza i']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di impianto</th>\
+                        <td class="visible-with-data" id="Tipo impia">' + (feature.properties['Tipo impia'] !== null ? autolinker.link(String(feature.properties['Tipo impia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Importanza</th>\
+                        <td class="visible-with-data" id="Importanza">' + (feature.properties['Importanza'] !== null ? autolinker.link(String(feature.properties['Importanza']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di cartello</th>\
+                        <td class="visible-with-data" id="Tipo Carte">' + (feature.properties['Tipo Carte'] !== null ? autolinker.link(String(feature.properties['Tipo Carte']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Testo della freccia</th>\
+                        <td class="visible-with-data" id="Testo frec">' + (feature.properties['Testo frec'] !== null ? autolinker.link(String(feature.properties['Testo frec']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_RifugioSEVsentierodiritorno_15_0() {
+            return {
+                pane: 'pane_RifugioSEVsentierodiritorno_15',
+                radius: 6.8,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,55,56,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_RifugioSEVsentierodiritorno_15');
+        map.getPane('pane_RifugioSEVsentierodiritorno_15').style.zIndex = 415;
+        map.getPane('pane_RifugioSEVsentierodiritorno_15').style['mix-blend-mode'] = 'normal';
+        var layer_RifugioSEVsentierodiritorno_15 = new L.geoJson(json_RifugioSEVsentierodiritorno_15, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_RifugioSEVsentierodiritorno_15',
+            layerName: 'layer_RifugioSEVsentierodiritorno_15',
+            pane: 'pane_RifugioSEVsentierodiritorno_15',
+            onEachFeature: pop_RifugioSEVsentierodiritorno_15,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_RifugioSEVsentierodiritorno_15_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_RifugioSEVsentierodiritorno_15);
+        map.addLayer(layer_RifugioSEVsentierodiritorno_15);
+        function pop_RifugioSEV_16(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Presenza segnavia</th>\
+                        <td class="visible-with-data" id="Presenza i">' + (feature.properties['Presenza i'] !== null ? autolinker.link(String(feature.properties['Presenza i']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di impianto</th>\
+                        <td class="visible-with-data" id="Tipo impia">' + (feature.properties['Tipo impia'] !== null ? autolinker.link(String(feature.properties['Tipo impia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Importanza</th>\
+                        <td class="visible-with-data" id="Importanza">' + (feature.properties['Importanza'] !== null ? autolinker.link(String(feature.properties['Importanza']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di cartello</th>\
+                        <td class="visible-with-data" id="Tipo Carte">' + (feature.properties['Tipo Carte'] !== null ? autolinker.link(String(feature.properties['Tipo Carte']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Testo della freccia</th>\
+                        <td class="visible-with-data" id="Testo frec">' + (feature.properties['Testo frec'] !== null ? autolinker.link(String(feature.properties['Testo frec']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_RifugioSEV_16_0() {
+            return {
+                pane: 'pane_RifugioSEV_16',
+        rotationAngle: 0.0,
+        rotationOrigin: 'center center',
+        icon: L.icon({
+            iconUrl: 'markers/RifugioSEV_16.svg',
+            iconSize: [34.199999999999996, 34.199999999999996]
+        }),
+                interactive: true,
+            }
+        }
+        map.createPane('pane_RifugioSEV_16');
+        map.getPane('pane_RifugioSEV_16').style.zIndex = 416;
+        map.getPane('pane_RifugioSEV_16').style['mix-blend-mode'] = 'normal';
+        var layer_RifugioSEV_16 = new L.geoJson(json_RifugioSEV_16, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_RifugioSEV_16',
+            layerName: 'layer_RifugioSEV_16',
+            pane: 'pane_RifugioSEV_16',
+            onEachFeature: pop_RifugioSEV_16,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.marker(latlng, style_RifugioSEV_16_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_RifugioSEV_16);
+        map.addLayer(layer_RifugioSEV_16);
+        function pop_FonteSambrosera_17(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Quota in metri</th>\
+                        <td class="visible-with-data" id="Quota">' + (feature.properties['Quota'] !== null ? autolinker.link(String(feature.properties['Quota']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_FonteSambrosera_17_0() {
+            return {
+                pane: 'pane_FonteSambrosera_17',
+        rotationAngle: 0.0,
+        rotationOrigin: 'center center',
+        icon: L.icon({
+            iconUrl: 'markers/FonteSambrosera_17.svg',
+            iconSize: [34.199999999999996, 34.199999999999996]
+        }),
+                interactive: true,
+            }
+        }
+        map.createPane('pane_FonteSambrosera_17');
+        map.getPane('pane_FonteSambrosera_17').style.zIndex = 417;
+        map.getPane('pane_FonteSambrosera_17').style['mix-blend-mode'] = 'normal';
+        var layer_FonteSambrosera_17 = new L.geoJson(json_FonteSambrosera_17, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_FonteSambrosera_17',
+            layerName: 'layer_FonteSambrosera_17',
+            pane: 'pane_FonteSambrosera_17',
+            onEachFeature: pop_FonteSambrosera_17,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.marker(latlng, style_FonteSambrosera_17_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_FonteSambrosera_17);
+        map.addLayer(layer_FonteSambrosera_17);
+        function pop_RifugioSEVsentierodiandata_18(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Presenza segnavia</th>\
+                        <td class="visible-with-data" id="Presenza i">' + (feature.properties['Presenza i'] !== null ? autolinker.link(String(feature.properties['Presenza i']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di impianto</th>\
+                        <td class="visible-with-data" id="Tipo impia">' + (feature.properties['Tipo impia'] !== null ? autolinker.link(String(feature.properties['Tipo impia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Importanza</th>\
+                        <td class="visible-with-data" id="Importanza">' + (feature.properties['Importanza'] !== null ? autolinker.link(String(feature.properties['Importanza']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di cartello</th>\
+                        <td class="visible-with-data" id="Tipo Carte">' + (feature.properties['Tipo Carte'] !== null ? autolinker.link(String(feature.properties['Tipo Carte']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Testo della freccia</th>\
+                        <td class="visible-with-data" id="Testo frec">' + (feature.properties['Testo frec'] !== null ? autolinker.link(String(feature.properties['Testo frec']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_RifugioSEVsentierodiandata_18_0() {
+            return {
+                pane: 'pane_RifugioSEVsentierodiandata_18',
+                radius: 6.8,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,55,56,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_RifugioSEVsentierodiandata_18');
+        map.getPane('pane_RifugioSEVsentierodiandata_18').style.zIndex = 418;
+        map.getPane('pane_RifugioSEVsentierodiandata_18').style['mix-blend-mode'] = 'normal';
+        var layer_RifugioSEVsentierodiandata_18 = new L.geoJson(json_RifugioSEVsentierodiandata_18, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_RifugioSEVsentierodiandata_18',
+            layerName: 'layer_RifugioSEVsentierodiandata_18',
+            pane: 'pane_RifugioSEVsentierodiandata_18',
+            onEachFeature: pop_RifugioSEVsentierodiandata_18,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_RifugioSEVsentierodiandata_18_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_RifugioSEVsentierodiandata_18);
+        map.addLayer(layer_RifugioSEVsentierodiandata_18);
+        function pop_Segnaviadivisionesentieri12_19(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Presenza segnavia</th>\
+                        <td class="visible-with-data" id="Presenza i">' + (feature.properties['Presenza i'] !== null ? autolinker.link(String(feature.properties['Presenza i']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di impianto</th>\
+                        <td class="visible-with-data" id="Tipo impia">' + (feature.properties['Tipo impia'] !== null ? autolinker.link(String(feature.properties['Tipo impia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Importanza</th>\
+                        <td class="visible-with-data" id="Importanza">' + (feature.properties['Importanza'] !== null ? autolinker.link(String(feature.properties['Importanza']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di cartello</th>\
+                        <td class="visible-with-data" id="Tipo Carte">' + (feature.properties['Tipo Carte'] !== null ? autolinker.link(String(feature.properties['Tipo Carte']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Testo della freccia</th>\
+                        <td class="visible-with-data" id="Testo frec">' + (feature.properties['Testo frec'] !== null ? autolinker.link(String(feature.properties['Testo frec']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Segnaviadivisionesentieri12_19_0() {
+            return {
+                pane: 'pane_Segnaviadivisionesentieri12_19',
+                radius: 6.8,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,55,56,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Segnaviadivisionesentieri12_19');
+        map.getPane('pane_Segnaviadivisionesentieri12_19').style.zIndex = 419;
+        map.getPane('pane_Segnaviadivisionesentieri12_19').style['mix-blend-mode'] = 'normal';
+        var layer_Segnaviadivisionesentieri12_19 = new L.geoJson(json_Segnaviadivisionesentieri12_19, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Segnaviadivisionesentieri12_19',
+            layerName: 'layer_Segnaviadivisionesentieri12_19',
+            pane: 'pane_Segnaviadivisionesentieri12_19',
+            onEachFeature: pop_Segnaviadivisionesentieri12_19,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Segnaviadivisionesentieri12_19_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Segnaviadivisionesentieri12_19);
+        map.addLayer(layer_Segnaviadivisionesentieri12_19);
+        function pop_STARTPOINT_20(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Presenza segnavia</th>\
+                        <td class="visible-with-data" id="Presenza i">' + (feature.properties['Presenza i'] !== null ? autolinker.link(String(feature.properties['Presenza i']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di impianto</th>\
+                        <td class="visible-with-data" id="Tipo impia">' + (feature.properties['Tipo impia'] !== null ? autolinker.link(String(feature.properties['Tipo impia']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Importanza</th>\
+                        <td class="visible-with-data" id="Importanza">' + (feature.properties['Importanza'] !== null ? autolinker.link(String(feature.properties['Importanza']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipologia di cartello</th>\
+                        <td class="visible-with-data" id="Tipo Carte">' + (feature.properties['Tipo Carte'] !== null ? autolinker.link(String(feature.properties['Tipo Carte']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Testo della freccia</th>\
+                        <td class="visible-with-data" id="Testo frec">' + (feature.properties['Testo frec'] !== null ? autolinker.link(String(feature.properties['Testo frec']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_STARTPOINT_20_0() {
+            return {
+                pane: 'pane_STARTPOINT_20',
+                radius: 6.8,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,55,56,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_STARTPOINT_20');
+        map.getPane('pane_STARTPOINT_20').style.zIndex = 420;
+        map.getPane('pane_STARTPOINT_20').style['mix-blend-mode'] = 'normal';
+        var layer_STARTPOINT_20 = new L.geoJson(json_STARTPOINT_20, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_STARTPOINT_20',
+            layerName: 'layer_STARTPOINT_20',
+            pane: 'pane_STARTPOINT_20',
+            onEachFeature: pop_STARTPOINT_20,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_STARTPOINT_20_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_STARTPOINT_20);
+        map.addLayer(layer_STARTPOINT_20);
+        function pop_Parcheggiogratuito_21(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Parcheggiogratuito_21_0() {
+            return {
+                pane: 'pane_Parcheggiogratuito_21',
+        rotationAngle: 0.0,
+        rotationOrigin: 'center center',
+        icon: L.icon({
+            iconUrl: 'markers/Parcheggiogratuito_21.svg',
+            iconSize: [34.199999999999996, 34.199999999999996]
+        }),
+                interactive: false,
+            }
+        }
+        map.createPane('pane_Parcheggiogratuito_21');
+        map.getPane('pane_Parcheggiogratuito_21').style.zIndex = 421;
+        map.getPane('pane_Parcheggiogratuito_21').style['mix-blend-mode'] = 'normal';
+        var layer_Parcheggiogratuito_21 = new L.geoJson(json_Parcheggiogratuito_21, {
+            attribution: '',
+            interactive: false,
+            dataVar: 'json_Parcheggiogratuito_21',
+            layerName: 'layer_Parcheggiogratuito_21',
+            pane: 'pane_Parcheggiogratuito_21',
+            onEachFeature: pop_Parcheggiogratuito_21,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.marker(latlng, style_Parcheggiogratuito_21_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Parcheggiogratuito_21);
+        map.addLayer(layer_Parcheggiogratuito_21);
+        var overlaysTree = [
+            {label: '<img src="legend/Parcheggiogratuito_21.png" /> Parcheggio gratuito ', layer: layer_Parcheggiogratuito_21},
+            {label: '<img src="legend/STARTPOINT_20.png" /> START POINT', layer: layer_STARTPOINT_20},
+            {label: '<img src="legend/Segnaviadivisionesentieri12_19.png" /> Segnavia divisione sentieri 1,2', layer: layer_Segnaviadivisionesentieri12_19},
+            {label: '<img src="legend/RifugioSEVsentierodiandata_18.png" /> Rifugio S.E.V. sentiero di andata', layer: layer_RifugioSEVsentierodiandata_18},
+            {label: '<img src="legend/FonteSambrosera_17.png" /> Fonte Sambrosera', layer: layer_FonteSambrosera_17},
+            {label: '<img src="legend/RifugioSEV_16.png" /> Rifugio S.E.V.', layer: layer_RifugioSEV_16},
+            {label: '<img src="legend/RifugioSEVsentierodiritorno_15.png" /> Rifugio S.E.V sentiero di ritorno', layer: layer_RifugioSEVsentierodiritorno_15},
+            {label: '<img src="legend/FontedelFo_14.png" /> Fonte del Fo\'', layer: layer_FontedelFo_14},
+            {label: '<img src="legend/SentierodiandataSanTomaso_13.png" /> Sentiero di andata San Tomaso', layer: layer_SentierodiandataSanTomaso_13},
+            {label: '<img src="legend/Nuovosentierodiritorno12_12.png" /> Nuovo sentiero di ritorno 1,2', layer: layer_Nuovosentierodiritorno12_12},
+            {label: '<img src="legend/Sentierodiritorno12_11.png" /> Sentiero di ritorno 1,2', layer: layer_Sentierodiritorno12_11},
+            {label: '<img src="legend/Sentieriadanello12_10.png" /> Sentieri ad anello 1,2', layer: layer_Sentieriadanello12_10},
+            {label: '<img src="legend/ComunediValmadrera_9.png" /> Comune di Valmadrera', layer: layer_ComunediValmadrera_9},
+            {label: '<img src="legend/Edifici_8.png" /> Edifici', layer: layer_Edifici_8},
+            {label: '<img src="legend/Strade_7.png" /> Strade', layer: layer_Strade_7},
+            {label: '<img src="legend/Retefluviale_6.png" /> Rete fluviale', layer: layer_Retefluviale_6},
+            {label: '<img src="legend/Retefluviale_5.png" /> Rete fluviale', layer: layer_Retefluviale_5},
+            {label: '<img src="legend/LagodiComo_4.png" /> Lago di Como', layer: layer_LagodiComo_4},
+            {label: '<img src="legend/Curvedilivello_3.png" /> Curve di livello', layer: layer_Curvedilivello_3},
+            {label: "DTM5X5_VALMADRERA", layer: layer_DTM5X5_VALMADRERA_2},
+            {label: "Ombreggiatura_DTM5X5", layer: layer_Ombreggiatura_DTM5X5_1},
+            {label: "OSM Standard", layer: layer_OSMStandard_0, radioGroup: 'bm' },]
+        var lay = L.control.layers.tree(null, overlaysTree,{
+            //namedToggle: true,
+            //selectorBack: false,
+            //closedSymbol: '&#8862; &#x1f5c0;',
+            //openedSymbol: '&#8863; &#x1f5c1;',
+            //collapseAll: 'Collapse all',
+            //expandAll: 'Expand all',
+            collapsed: false, 
+        });
+        lay.addTo(map);
+		document.addEventListener("DOMContentLoaded", function() {
+            // set new Layers List height which considers toggle icon
+            function newLayersListHeight() {
+                var layerScrollbarElement = document.querySelector('.leaflet-control-layers-scrollbar');
+                if (layerScrollbarElement) {
+                    var layersListElement = document.querySelector('.leaflet-control-layers-list');
+                    var originalHeight = layersListElement.style.height 
+                        || window.getComputedStyle(layersListElement).height;
+                    var newHeight = parseFloat(originalHeight) - 50;
+                    layersListElement.style.height = newHeight + 'px';
+                }
+            }
+            var isLayersListExpanded = true;
+            var controlLayersElement = document.querySelector('.leaflet-control-layers');
+            var toggleLayerControl = document.querySelector('.leaflet-control-layers-toggle');
+            // toggle Collapsed/Expanded and apply new Layers List height
+            toggleLayerControl.addEventListener('click', function() {
+                if (isLayersListExpanded) {
+                    controlLayersElement.classList.remove('leaflet-control-layers-expanded');
+                } else {
+                    controlLayersElement.classList.add('leaflet-control-layers-expanded');
+                }
+                isLayersListExpanded = !isLayersListExpanded;
+                newLayersListHeight()
+            });	
+			// apply new Layers List height if toggle layerstree
+			if (controlLayersElement) {
+				controlLayersElement.addEventListener('click', function(event) {
+					var toggleLayerHeaderPointer = event.target.closest('.leaflet-layerstree-header-pointer span');
+					if (toggleLayerHeaderPointer) {
+						newLayersListHeight();
+					}
+				});
+			}
+            // Collapsed/Expanded at Start to apply new height
+            setTimeout(function() {
+                toggleLayerControl.click();
+            }, 10);
+            setTimeout(function() {
+                toggleLayerControl.click();
+            }, 10);
+            // Collapsed touch/small screen
+            var isSmallScreen = window.innerWidth < 650;
+            if (isSmallScreen) {
+                setTimeout(function() {
+                    controlLayersElement.classList.remove('leaflet-control-layers-expanded');
+                    isLayersListExpanded = !isLayersListExpanded;
+                }, 500);
+            }  
+        });       
+        map.on("zoomend", function(){
+
+                if (map.hasLayer(layer_Sentierodiritorno12_11)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_Sentierodiritorno12_11.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_Sentierodiritorno12_11.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_Nuovosentierodiritorno12_12)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_Nuovosentierodiritorno12_12.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_Nuovosentierodiritorno12_12.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_SentierodiandataSanTomaso_13)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_SentierodiandataSanTomaso_13.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_SentierodiandataSanTomaso_13.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_RifugioSEVsentierodiritorno_15)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_RifugioSEVsentierodiritorno_15.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_RifugioSEVsentierodiritorno_15.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_RifugioSEVsentierodiandata_18)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_RifugioSEVsentierodiandata_18.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_RifugioSEVsentierodiandata_18.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_Segnaviadivisionesentieri12_19)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_Segnaviadivisionesentieri12_19.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_Segnaviadivisionesentieri12_19.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_STARTPOINT_20)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_STARTPOINT_20.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_STARTPOINT_20.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+        });
+        setBounds();
+        var i = 0;
+        layer_Curvedilivello_3.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['ELEV'] !== null?String('<div style="color: #967f4f; font-size: 10pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['ELEV']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Curvedilivello_3'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_Sentierodiritorno12_11.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Name'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['Name']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Sentierodiritorno12_11'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_Nuovosentierodiritorno12_12.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Name'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['Name']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Nuovosentierodiritorno12_12'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_SentierodiandataSanTomaso_13.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Name'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['Name']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_SentierodiandataSanTomaso_13'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_RifugioSEVsentierodiritorno_15.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Name'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['Name']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_RifugioSEVsentierodiritorno_15'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_RifugioSEVsentierodiandata_18.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Name'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['Name']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_RifugioSEVsentierodiandata_18'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_Segnaviadivisionesentieri12_19.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Name'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['Name']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Segnaviadivisionesentieri12_19'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_STARTPOINT_20.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Name'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['Name']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_STARTPOINT_20'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+                if (map.hasLayer(layer_Sentierodiritorno12_11)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_Sentierodiritorno12_11.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_Sentierodiritorno12_11.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_Nuovosentierodiritorno12_12)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_Nuovosentierodiritorno12_12.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_Nuovosentierodiritorno12_12.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_SentierodiandataSanTomaso_13)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_SentierodiandataSanTomaso_13.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_SentierodiandataSanTomaso_13.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_RifugioSEVsentierodiritorno_15)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_RifugioSEVsentierodiritorno_15.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_RifugioSEVsentierodiritorno_15.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_RifugioSEVsentierodiandata_18)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_RifugioSEVsentierodiandata_18.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_RifugioSEVsentierodiandata_18.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_Segnaviadivisionesentieri12_19)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_Segnaviadivisionesentieri12_19.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_Segnaviadivisionesentieri12_19.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+                if (map.hasLayer(layer_STARTPOINT_20)) {
+                    if (map.getZoom() <= 19 && map.getZoom() >= 19) {
+                        layer_STARTPOINT_20.eachLayer(function (layer) {
+                            layer.openTooltip();
+                        });
+                    } else {
+                        layer_STARTPOINT_20.eachLayer(function (layer) {
+                            layer.closeTooltip();
+                        });
+                    }
+                }
+        L.ImageOverlay.include({
+            getBounds: function () {
+                return this._bounds;
+            }
+        });
+        resetLabels([layer_Curvedilivello_3,layer_Sentierodiritorno12_11,layer_Nuovosentierodiritorno12_12,layer_SentierodiandataSanTomaso_13,layer_RifugioSEVsentierodiritorno_15,layer_RifugioSEVsentierodiandata_18,layer_Segnaviadivisionesentieri12_19,layer_STARTPOINT_20]);
+        map.on("zoomend", function(){
+            resetLabels([layer_Curvedilivello_3,layer_Sentierodiritorno12_11,layer_Nuovosentierodiritorno12_12,layer_SentierodiandataSanTomaso_13,layer_RifugioSEVsentierodiritorno_15,layer_RifugioSEVsentierodiandata_18,layer_Segnaviadivisionesentieri12_19,layer_STARTPOINT_20]);
+        });
+        map.on("layeradd", function(){
+            resetLabels([layer_Curvedilivello_3,layer_Sentierodiritorno12_11,layer_Nuovosentierodiritorno12_12,layer_SentierodiandataSanTomaso_13,layer_RifugioSEVsentierodiritorno_15,layer_RifugioSEVsentierodiandata_18,layer_Segnaviadivisionesentieri12_19,layer_STARTPOINT_20]);
+        });
+        map.on("layerremove", function(){
+            resetLabels([layer_Curvedilivello_3,layer_Sentierodiritorno12_11,layer_Nuovosentierodiritorno12_12,layer_SentierodiandataSanTomaso_13,layer_RifugioSEVsentierodiritorno_15,layer_RifugioSEVsentierodiandata_18,layer_Segnaviadivisionesentieri12_19,layer_STARTPOINT_20]);
+        });
+        </script>
+    </body>
+</html>

@@ -1,0 +1,1 @@
+var json_Parcheggiogratuito_21 = {"type":"FeatureCollection","name":"Parcheggiogratuito_21","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[{"type":"Feature","properties":{"id":"1","name":"Via S.Carlo Borromeo 23"},"geometry":{"type":"Point","coordinates":[9.352220632944311,45.847037875705766]}}]}
